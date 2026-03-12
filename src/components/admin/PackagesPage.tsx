@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Edit2, Trash2, Search, Package as PackageIcon, Upload, Layers } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Package as PackageIcon, Upload, Layers, Star, Check } from 'lucide-react';
 import Modal from './Modal';
 import { api } from '@/lib/api';
 
@@ -20,6 +20,9 @@ const PackagesPage: React.FC = () => {
     price: 0,
     discount_percent: 0,
     validity_days: 30,
+    order_index: 0,
+    is_popular: false,
+    badge_text: '',
     status: 'active',
     iconFile: null as File | null,
   });
@@ -40,11 +43,13 @@ const PackagesPage: React.FC = () => {
     load();
   }, []);
 
-  const filtered = list.filter(p => !search || (p.title || '').toLowerCase().includes(search.toLowerCase()));
+  const filtered = list
+    .filter(p => !search || (p.title || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ title: '', description: '', price: 0, discount_percent: 0, validity_days: 30, status: 'active', iconFile: null });
+    setForm({ title: '', description: '', price: 0, discount_percent: 0, validity_days: 30, order_index: 0, is_popular: false, badge_text: '', status: 'active', iconFile: null });
     setFeatures([]);
     setImagePreview(null);
     setShowModal(true);
@@ -58,6 +63,9 @@ const PackagesPage: React.FC = () => {
       price: Number(p.price || 0),
       discount_percent: Number(p.discount_percent || 0),
       validity_days: Number(p.validity_days || 30),
+      order_index: Number(p.order_index || 0),
+      is_popular: Boolean(p.is_popular),
+      badge_text: p.badge_text || '',
       status: p.status || 'active',
       iconFile: null,
     });
@@ -92,6 +100,9 @@ const PackagesPage: React.FC = () => {
     fd.append('price', String(form.price));
     fd.append('discount_percent', String(form.discount_percent));
     fd.append('validity_days', String(form.validity_days));
+    fd.append('order_index', String(form.order_index));
+    fd.append('is_popular', form.is_popular ? '1' : '0');
+    if (form.badge_text) fd.append('badge_text', form.badge_text);
     fd.append('status', form.status);
     if (form.iconFile) fd.append('icon', form.iconFile);
     features.forEach((f, i) => {
@@ -150,36 +161,112 @@ const PackagesPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5">
-              <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
-              <div className="mt-3 h-3 w-32 bg-slate-100 rounded animate-pulse" />
-              <div className="mt-2 h-3 w-48 bg-slate-100 rounded animate-pulse" />
+            <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+              <div className="h-12 w-12 bg-slate-100 rounded-2xl animate-pulse mb-4" />
+              <div className="h-6 w-32 bg-slate-100 rounded animate-pulse mb-2" />
+              <div className="h-4 w-48 bg-slate-100 rounded animate-pulse mb-6" />
+              <div className="space-y-3">
+                <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
+                <div className="h-4 w-full bg-slate-50 rounded animate-pulse" />
+              </div>
             </div>
           ))
         ) : filtered.map(pkg => (
-          <div key={pkg.id} className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:shadow-slate-200/50 transition-all group">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-white">
-                <PackageIcon size={18} />
+          <div 
+            key={pkg.id} 
+            className={`relative bg-white rounded-[2rem] border-2 transition-all duration-300 p-8 flex flex-col group ${
+              pkg.is_popular 
+                ? 'border-cyan-500 shadow-xl shadow-cyan-500/10 scale-[1.02] z-10' 
+                : 'border-slate-100 shadow-sm hover:border-cyan-200 hover:shadow-md'
+            }`}
+          >
+            {/* Badge */}
+            {(pkg.badge_text || pkg.is_popular) && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg ${
+                  pkg.is_popular ? 'bg-cyan-500 text-white' : 'bg-slate-800 text-white'
+                }`}>
+                  {pkg.badge_text || (pkg.is_popular ? 'Ən Məşhur' : '')}
+                </span>
               </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => openEdit(pkg)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
-                  <Edit2 size={14} />
-                </button>
-                <button onClick={() => handleDelete(pkg.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-600 transition-colors">
-                  <Trash2 size={14} />
-                </button>
-              </div>
+            )}
+
+            {/* Actions Overlay */}
+            <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+              <button 
+                onClick={() => openEdit(pkg)} 
+                className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-sm"
+                title="Redaktə et"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button 
+                onClick={() => handleDelete(pkg.id)} 
+                className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm"
+                title="Sil"
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">{pkg.title}</h3>
-            <p className="text-xs text-slate-400 mb-2">{pkg.description || '—'}</p>
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-800">{Number(pkg.price).toFixed(2)} AZN</span>
-              <span className="text-slate-600">{Number(pkg.discount_percent)}% endirim</span>
-              <span className="text-slate-600">{pkg.validity_days} gün</span>
+
+            {/* Header */}
+            <div className="mb-8">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-inner ${
+                pkg.is_popular ? 'bg-cyan-50 text-cyan-600' : 'bg-slate-50 text-slate-400'
+              }`}>
+                {pkg.icon_url || pkg.icon_path ? (
+                  <img src={pkg.icon_url || pkg.icon_path} className="w-8 h-8 object-contain" alt="" />
+                ) : (
+                  <PackageIcon size={28} />
+                )}
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">{pkg.title}</h3>
+              <p className="text-sm text-slate-400 leading-relaxed min-h-[3rem]">{pkg.description || 'Xüsusi imtiyazlar və üstünlüklər'}</p>
+            </div>
+
+            {/* Pricing */}
+            <div className="mb-8 flex items-baseline gap-1">
+              <span className="text-4xl font-black text-slate-800 tracking-tight">{Number(pkg.price).toFixed(2)}</span>
+              <span className="text-lg font-bold text-slate-400">AZN</span>
+              <span className="ml-2 text-xs font-bold text-slate-400">/ {pkg.validity_days} gün</span>
+            </div>
+
+            {/* Features */}
+            <div className="flex-1 space-y-4 mb-8">
+              {Array.isArray(pkg.features) && pkg.features.length > 0 ? (
+                pkg.features.map((f: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
+                      pkg.is_popular ? 'bg-cyan-100 text-cyan-600' : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      <Check size={12} strokeWidth={3} />
+                    </div>
+                    <span className="text-sm font-medium text-slate-600">
+                      {f.name} {f.value && <span className="text-slate-400 font-normal">— {f.value}</span>}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Özəllik yoxdur</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Info */}
+            <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers size={14} className="text-slate-300" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sıra: {pkg.order_index}</span>
+              </div>
+              <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                pkg.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+              }`}>
+                {pkg.status === 'active' ? 'Aktiv' : 'Deaktiv'}
+              </div>
             </div>
           </div>
         ))}
@@ -227,7 +314,7 @@ const PackagesPage: React.FC = () => {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none"
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Qiymət (AZN)</label>
               <input
@@ -252,7 +339,7 @@ const PackagesPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Müddət (gün)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Etibarlılıq (gün)</label>
               <input
                 type="number"
                 value={form.validity_days}
@@ -262,17 +349,50 @@ const PackagesPage: React.FC = () => {
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Sıralama İndeksi</label>
+              <input
+                type="number"
+                value={form.order_index}
+                onChange={(e) => setForm(f => ({ ...f, order_index: Number(e.target.value) }))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Badge Mətni</label>
+              <input
+                type="text"
+                value={form.badge_text}
+                onChange={(e) => setForm(f => ({ ...f, badge_text: e.target.value }))}
+                placeholder="Məs: ən sərfəli"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              >
+                <option value="active">Aktiv</option>
+                <option value="inactive">Deaktiv</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-            >
-              <option value="active">Aktiv</option>
-              <option value="inactive">Deaktiv</option>
-            </select>
+
+          <div className="flex items-center gap-2 py-2">
+            <input
+              type="checkbox"
+              id="is_popular"
+              checked={form.is_popular}
+              onChange={(e) => setForm(f => ({ ...f, is_popular: e.target.checked }))}
+              className="w-4 h-4 text-cyan-500 border-slate-300 rounded focus:ring-cyan-500"
+            />
+            <label htmlFor="is_popular" className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+              <Star size={14} className={form.is_popular ? 'text-amber-400 fill-amber-400' : 'text-slate-300'} />
+              Məşhur paket olaraq işarələ
+            </label>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
