@@ -17,6 +17,9 @@ const MapView: React.FC = () => {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [detailStocks, setDetailStocks] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -28,8 +31,8 @@ const MapView: React.FC = () => {
           name: e.equipment_name,
           status: e.equipment_status as Equipment['status'],
           current_ped_count: e.current_ped_count ?? 0,
-          longitude: e.longitude,
-          latitude: e.latitude,
+          longitude: Number(e.longitude),
+          latitude: Number(e.latitude),
           address: e.current_address,
         })) as Equipment[];
         setEquipmentList(mapped);
@@ -66,6 +69,26 @@ const MapView: React.FC = () => {
   const getMarkerPulse = (eq: Equipment) => {
     if (eq.status === 'active' && eq.current_ped_count >= 20) return 'animate-pulse';
     return '';
+  };
+
+  const openDetail = (eq: Equipment) => {
+    setSelectedEquipment(eq);
+    setShowDetailModal(true);
+    setDetailLoading(true);
+    setDetailError('');
+    setDetailStocks([]);
+    const run = async () => {
+      try {
+        const data = await api.equipmentDetails(eq.id);
+        const stocks = Array.isArray(data?.equipment_ped_stock) ? data.equipment_ped_stock : [];
+        setDetailStocks(stocks);
+      } catch {
+        setDetailError('Detallar yüklənə bilmədi');
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+    run();
   };
 
   return (
@@ -135,8 +158,8 @@ const MapView: React.FC = () => {
 
               {/* Equipment markers */}
               {filtered.map((eq) => {
-                const x = lngToX(eq.longitude);
-                const y = latToY(eq.latitude);
+                const x = Number.isFinite(eq.longitude) ? lngToX(eq.longitude) : 0;
+                const y = Number.isFinite(eq.latitude) ? latToY(eq.latitude) : 0;
                 const isSelected = selectedEquipment?.id === eq.id;
                 const isHovered = hoveredId === eq.id;
 
@@ -213,7 +236,7 @@ const MapView: React.FC = () => {
                   <p className="text-[10px] text-slate-400">{eq.number} — {eq.current_ped_count} ped</p>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedEquipment(eq); setShowDetailModal(true); }}
+                  onClick={(e) => { e.stopPropagation(); openDetail(eq); }}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600 transition-colors"
                 >
                   <Eye size={14} />
@@ -245,7 +268,11 @@ const MapView: React.FC = () => {
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400">Koordinatlar</p>
-                <p className="font-semibold text-slate-700 text-xs">{selectedEquipment.latitude.toFixed(4)}, {selectedEquipment.longitude.toFixed(4)}</p>
+                <p className="font-semibold text-slate-700 text-xs">
+                  {Number.isFinite(selectedEquipment.latitude) && Number.isFinite(selectedEquipment.longitude)
+                    ? `${selectedEquipment.latitude.toFixed(4)}, ${selectedEquipment.longitude.toFixed(4)}`
+                    : '—'}
+                </p>
               </div>
             </div>
             <div className="bg-slate-50 rounded-xl p-3">
@@ -254,17 +281,26 @@ const MapView: React.FC = () => {
             </div>
             <div>
               <h4 className="font-semibold text-slate-700 mb-2 text-sm">Stok Təfərrüatları</h4>
-              <div className="space-y-2">
-                {equipmentStocks.filter(s => s.equipment_id === selectedEquipment.id).map(stock => (
-                  <div key={stock.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                    <span className="text-sm text-slate-600">{getBrandById(stock.brand_id)?.name} — {getCategoryById(stock.category_id)?.name}</span>
-                    <span className="text-sm font-bold text-slate-800">{stock.quantity} ədəd</span>
-                  </div>
-                ))}
-                {equipmentStocks.filter(s => s.equipment_id === selectedEquipment.id).length === 0 && (
-                  <p className="text-sm text-slate-400 text-center py-3">Stok məlumatı yoxdur</p>
-                )}
-              </div>
+              {detailLoading ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-40 bg-slate-100 rounded animate-pulse" />
+                  <div className="h-3 w-52 bg-slate-100 rounded animate-pulse" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {detailStocks.map((stock: any) => (
+                    <div key={stock.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+                      <span className="text-sm text-slate-600">
+                        {stock?.ped_category?.brand?.name ? `${stock.ped_category.brand.name} — ${stock.ped_category.category_name}` : (stock?.ped_category?.category_name || 'Naməlum kateqoriya')}
+                      </span>
+                      <span className="text-sm font-bold text-slate-800">{stock?.qty_available ?? stock?.quantity ?? 0} ədəd</span>
+                    </div>
+                  ))}
+                  {detailStocks.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-3">Stok məlumatı yoxdur</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

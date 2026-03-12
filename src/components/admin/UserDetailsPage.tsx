@@ -3,7 +3,7 @@ import {
   ArrowLeft, User, Mail, Phone, Calendar, Wallet, 
   History, ShoppingBag, Save, Plus, CreditCard, 
   Shield, AlertCircle, CheckCircle2, Loader2,
-  Clock, MapPin
+  Clock, MapPin, Package as PackageIcon
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { api } from '@/lib/api';
@@ -17,6 +17,9 @@ const UserDetailsPage: React.FC = () => {
   const [userData, setUserData] = useState<any>(null);
   const [balanceAmount, setBalanceAmount] = useState<string>('5');
   const [topUpLoading, setTopUpLoading] = useState(false);
+  const [packagesList, setPackagesList] = useState<any[]>([]);
+  const [assignPkgLoading, setAssignPkgLoading] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | ''>('');
 
   useEffect(() => {
     if (selectedUserId) {
@@ -31,6 +34,9 @@ const UserDetailsPage: React.FC = () => {
     try {
       const response = await api.userShow(selectedUserId!);
       setUserData(response.data);
+      const pkgs = await api.packages();
+      const pdata = Array.isArray(pkgs) ? pkgs : (pkgs?.data ?? pkgs);
+      setPackagesList(Array.isArray(pdata) ? pdata : []);
     } catch (error) {
       toast({
         title: "Xəta",
@@ -141,6 +147,16 @@ const UserDetailsPage: React.FC = () => {
                   <p className="text-xs text-slate-400 mb-1">Sifarişlər</p>
                   <p className="text-lg font-bold text-slate-700">{userData.orders?.length || 0}</p>
                 </div>
+              <div className="bg-slate-50 rounded-2xl p-4 text-center col-span-2">
+                <p className="text-xs text-slate-400 mb-1">Aktiv Paket</p>
+                {userData.active_package ? (
+                  <p className="text-sm font-bold text-slate-700">
+                    {userData.active_package.package?.title} — {userData.active_package.package?.discount_percent}% — bitmə {userData.active_package.end_date}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400">Yoxdur</p>
+                )}
+              </div>
               </div>
             </div>
           </div>
@@ -181,6 +197,88 @@ const UserDetailsPage: React.FC = () => {
                 {topUpLoading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
                 İndi artır
               </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+            <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <PackageIcon size={18} className="text-cyan-500" />
+              Paket Təyin Et
+            </h4>
+            <div className="space-y-4">
+              {userData.active_package ? (
+                <div className="bg-cyan-50 rounded-2xl p-4 border border-cyan-100">
+                  <p className="text-xs text-cyan-600">Aktiv Paket</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {userData.active_package.package?.title} — {userData.active_package.package?.discount_percent}% — bitmə {userData.active_package.end_date}
+                  </p>
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.adminCancelUserPackage(selectedUserId!);
+                          const res = await api.userShow(selectedUserId!);
+                          setUserData(res.data);
+                        } catch {}
+                      }}
+                      className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100"
+                    >
+                      Ləğv et
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Aktiv paket yoxdur</p>
+              )}
+              <div className="grid grid-cols-1 gap-3">
+                {packagesList.map((p: any) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPackageId(p.id)}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                      selectedPackageId === p.id ? 'border-cyan-400 bg-cyan-50 shadow-sm' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{p.title}</p>
+                        <p className="text-xs text-slate-500">{p.validity_days} gün • {Number(p.discount_percent)}% endirim</p>
+                      </div>
+                      <span className="text-sm font-bold text-cyan-600">{Number(p.price).toFixed(2)} AZN</span>
+                    </div>
+                  </button>
+                ))}
+                {packagesList.length === 0 && (
+                  <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="text-sm text-slate-400">Paket tapılmadı</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (selectedPackageId === '') return;
+                    setAssignPkgLoading(true);
+                    try {
+                      await api.adminSubscribeUserPackage(selectedUserId!, selectedPackageId as number);
+                      const res = await api.userShow(selectedUserId!);
+                      setUserData(res.data);
+                      setSelectedPackageId('');
+                    } catch {} finally {
+                      setAssignPkgLoading(false);
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                  disabled={assignPkgLoading || selectedPackageId === ''}
+                >
+                  Təyin et
+                </button>
+                <button
+                  onClick={() => setSelectedPackageId('')}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all"
+                >
+                  Seçimi təmizlə
+                </button>
+              </div>
             </div>
           </div>
         </div>

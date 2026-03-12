@@ -63,8 +63,13 @@ const Dashboard: React.FC = () => {
   const activeUsers = users.filter(u => (u.system_status || u.activity_status) === 'active').length;
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayCount = transactions.filter(t => (t.created_at || '').startsWith(todayKey)).length;
-  const totalPedStock = equipments.reduce((sum, e) => sum + (e.current_ped_count ?? 0), 0);
-  const totalWalletBalance = users.reduce((sum, u) => sum + (u.user_current_balance ?? 0), 0);
+  const totalPedStock = equipments.reduce((sum, e) => sum + Number(e.current_ped_count ?? 0), 0);
+  const totalWalletBalance = users.reduce((sum, u) => sum + Number(u.user_current_balance ?? 0), 0);
+  const last30Start = new Date(); last30Start.setDate(last30Start.getDate() - 29);
+  const monthlyCount = transactions.filter(t => {
+    const d = new Date(t.created_at);
+    return !isNaN(d.getTime()) && d >= last30Start;
+  }).length;
 
   const stats = [
     { label: 'Aktiv Cihazlar', value: activeEquipments, icon: <Monitor size={22} />, color: 'from-emerald-500 to-emerald-600', change: '+2', up: true },
@@ -76,7 +81,7 @@ const Dashboard: React.FC = () => {
     { label: 'Bugünkü Əməliyyat', value: todayCount, icon: <Package size={22} />, color: 'from-cyan-500 to-cyan-600', change: '+12%', up: true },
     { label: 'Aktiv İstifadəçilər', value: activeUsers, icon: <Users size={22} />, color: 'from-blue-500 to-blue-600', change: '+3', up: true },
     { label: 'Ümumi Stok', value: `${totalPedStock} ped`, icon: <Activity size={22} />, color: 'from-purple-500 to-purple-600', change: '-8%', up: false },
-    { label: 'Aylıq İstifadə', value: '1,295 ped', icon: <TrendingUp size={22} />, color: 'from-indigo-500 to-indigo-600', change: '+18%', up: true },
+    { label: 'Son 30 gün əməliyyat', value: monthlyCount, icon: <TrendingUp size={22} />, color: 'from-indigo-500 to-indigo-600', change: '+18%', up: true },
     { label: 'Ümumi Balans', value: `${totalWalletBalance.toFixed(2)} AZN`, icon: <Wallet size={22} />, color: 'from-teal-500 to-teal-600', change: '+5%', up: true },
   ];
 
@@ -270,7 +275,7 @@ const Dashboard: React.FC = () => {
                   i === 2 ? 'from-pink-500 to-rose-600' :
                   'from-slate-400 to-slate-500'
                 }`}>
-                  {user.ad[0]}{user.soyad[0]}
+                  {(user.full_name || '??').slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{user.full_name || 'Naməlum'}</p>

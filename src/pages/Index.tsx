@@ -31,10 +31,16 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const Index: React.FC = () => {
   const RouterSync: React.FC = () => {
-    const { setCurrentPage } = useAppContext();
+    const { setCurrentPage, setSelectedUserId } = useAppContext();
     const location = useLocation();
     useEffect(() => {
       const path = location.pathname.replace(/^\//, '') || 'dashboard';
+      const userMatch = path.match(/^users\/(\d+)$/);
+      if (userMatch) {
+        setSelectedUserId(Number(userMatch[1]));
+        setCurrentPage('user-details' as any);
+        return;
+      }
       const pageMap: Record<string, string> = {
         '': 'dashboard',
         'dashboard': 'dashboard',
@@ -44,13 +50,14 @@ const Index: React.FC = () => {
         'transactions': 'transactions',
         'brands': 'brands',
         'categories': 'categories',
+        'packages': 'packages',
         'forum': 'forum',
         'stories': 'stories',
         'banners': 'banners',
       };
       const page = pageMap[path] || 'dashboard';
       setCurrentPage(page as any);
-    }, [setCurrentPage, location.pathname]);
+    }, [setCurrentPage, setSelectedUserId, location.pathname]);
     return <AppLayout />;
   };
 

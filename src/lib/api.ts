@@ -62,6 +62,7 @@ const cancelOrder = (payload: any) => request('/cancel-order', 'POST', payload);
 const equipments = () => request('/equipments', 'GET');
 const equipmentDetails = (id: number | string) => request(`/equipment-details/${id}`, 'GET');
 const equipmentUpdate = (id: number | string, payload: any) => request(`/equipments/${id}`, 'PUT', payload);
+const equipmentAddStock = (id: number | string, ped_category_id: number, quantity: number) => request(`/equipments/${id}/stocks`, 'POST', { ped_category_id, quantity });
 
 const brands = () => request('/brands', 'GET');
 const brandShow = (id: number | string) => request(`/brands/${id}`, 'GET');
@@ -103,6 +104,54 @@ const storyUpdate = (id: number | string, formData: FormData) => {
 };
 const storyDelete = (id: number | string) => request(`/stories/${id}`, 'DELETE');
 
+const banners = () => request('/banners', 'GET');
+const bannerShow = (id: number | string) => request(`/banners/${id}`, 'GET');
+const bannerStore = (formData: FormData) => {
+  const token = getToken();
+  return fetch(`${BASE_URL}/banners`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  }).then(res => res.json());
+};
+const bannerUpdate = (id: number | string, formData: FormData) => {
+  const token = getToken();
+  return fetch(`${BASE_URL}/banners/${id}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  }).then(res => res.json());
+};
+const bannerDelete = (id: number | string) => request(`/banners/${id}`, 'DELETE');
+
+const packages = () => request('/packages', 'GET');
+const packageShow = (id: number | string) => request(`/packages/${id}`, 'GET');
+const packageStore = (formData: FormData) => {
+  const token = getToken();
+  return fetch(`${BASE_URL}/packages`, {
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    body: formData
+  }).then(res => res.json());
+};
+const packageUpdate = (id: number | string, formData: FormData) => {
+  const token = getToken();
+  return fetch(`${BASE_URL}/packages/${id}`, {
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    body: formData
+  }).then(res => res.json());
+};
+const packageDelete = (id: number | string) => request(`/packages/${id}`, 'DELETE');
+
+const userPackages = () => request('/user-packages', 'GET');
+const userActivePackage = () => request('/user-packages/active', 'GET');
+const userSubscribePackage = (package_id: number | string) => request('/user-packages/subscribe', 'POST', { package_id });
+const userCancelPackage = () => request('/user-packages/cancel', 'POST');
+const userPackagesByUserId = (user_id: number | string) => request(`/users/${user_id}/packages`, 'GET');
+const userActivePackageByUserId = (user_id: number | string) => request(`/users/${user_id}/packages/active`, 'GET');
+const adminSubscribeUserPackage = (user_id: number | string, package_id: number | string) => request(`/users/${user_id}/packages/subscribe`, 'POST', { package_id });
+const adminCancelUserPackage = (user_id: number | string) => request(`/users/${user_id}/packages/cancel`, 'POST');
 const transactionHistories = () => request('/transaction-histories', 'GET');
 const transactionHistoryShow = (id: number | string) => request(`/transaction-histories/${id}`, 'GET');
 const me = () => request('/user', 'GET');
@@ -125,6 +174,7 @@ export const api = {
   equipments,
   equipmentDetails,
   equipmentUpdate,
+  equipmentAddStock,
   brands,
   brandShow,
   brandStore,
@@ -146,6 +196,24 @@ export const api = {
   storyStore,
   storyUpdate,
   storyDelete,
+  banners,
+  bannerShow,
+  bannerStore,
+  bannerUpdate,
+  bannerDelete,
+  packages,
+  packageShow,
+  packageStore,
+  packageUpdate,
+  packageDelete,
+  userPackages,
+  userActivePackage,
+  userSubscribePackage,
+  userCancelPackage,
+  userPackagesByUserId,
+  userActivePackageByUserId,
+  adminSubscribeUserPackage,
+  adminCancelUserPackage,
   transactionHistories,
   transactionHistoryShow,
   me,

@@ -11,9 +11,11 @@ import {
 import type { User } from '@/data/mockData';
 import { api } from '@/lib/api';
 import { useAppContext } from '@/contexts/AppContext';
+import { useNavigate } from 'react-router-dom';
 
 const UsersPage: React.FC = () => {
   const { setCurrentPage, setSelectedUserId } = useAppContext();
+  const navigate = useNavigate();
   const [userList, setUserList] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -26,6 +28,11 @@ const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState<Record<number, boolean>>({});
+  const [packagesList, setPackagesList] = useState<any[]>([]);
+  const [userActivePkgMap, setUserActivePkgMap] = useState<Record<number, any>>({});
+  const [showAssignPackageModal, setShowAssignPackageModal] = useState(false);
+  const [assignTargetUser, setAssignTargetUser] = useState<User | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | ''>('');
 
   useEffect(() => {
     const load = async () => {
@@ -34,6 +41,9 @@ const UsersPage: React.FC = () => {
         console.log(response);
         const data = Array.isArray(response) ? response : (response?.data ?? response);
         setUserList(Array.isArray(data) ? data : []);
+        const pkgs = await api.packages();
+        const pdata = Array.isArray(pkgs) ? pkgs : (pkgs?.data ?? pkgs);
+        setPackagesList(Array.isArray(pdata) ? pdata : []);
         setError('');
       } catch {
         setUserList([]);
@@ -43,6 +53,26 @@ const UsersPage: React.FC = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    const loadActivePkgs = async () => {
+      try {
+        const entries = await Promise.all(
+          userList.map(async (u) => {
+            try {
+              const res = await api.userActivePackageByUserId(u.id);
+              const data = (res?.data ?? null);
+              return [u.id, data] as [number, any];
+            } catch {
+              return [u.id, null] as [number, any];
+            }
+          })
+        );
+        setUserActivePkgMap(Object.fromEntries(entries));
+      } catch {}
+    };
+    if (userList.length) loadActivePkgs();
+  }, [userList]);
 
   const filtered = useMemo(() => {
     let result = [...userList];
@@ -175,6 +205,7 @@ const UsersPage: React.FC = () => {
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">İstifadəçi</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Əlaqə</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Status</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Paket</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Balans</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Qeydiyyat</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Əməliyyatlar</th>
@@ -230,6 +261,17 @@ const UsersPage: React.FC = () => {
                       </select>
                     </td>
                     <td className="px-5 py-3.5">
+                      <div className="text-xs text-slate-600">
+                        {userActivePkgMap[user.id] ? (
+                          <span className="font-medium">
+                            {userActivePkgMap[user.id]?.package?.title} — {userActivePkgMap[user.id]?.package?.discount_percent}% — bitmə {userActivePkgMap[user.id]?.end_date}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Yoxdur</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
                       <span className="text-sm font-bold text-slate-800">{Number(user.user_current_balance ?? user.wallet_balance ?? 0).toFixed(2)} AZN</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-400">{user.created_at}</td>
@@ -238,12 +280,19 @@ const UsersPage: React.FC = () => {
                         <button
                           onClick={() => { 
                             setSelectedUserId(user.id);
-                            setCurrentPage('user-details');
+                            navigate(`/users/${user.id}`);
                           }}
                           className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600 transition-colors"
                           title="Ətraflı"
                         >
                           <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => { setAssignTargetUser(user); setSelectedPackageId(''); setShowAssignPackageModal(true); }}
+                          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-emerald-600 transition-colors"
+                          title="Paket təyin et"
+                        >
+                          <Users size={16} />
                         </button>
                         <button
                           onClick={() => { setSelectedUser(user); setShowBalanceModal(true); }}
@@ -331,6 +380,44 @@ const UsersPage: React.FC = () => {
             </button>
             <button onClick={handleRefund} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all">
               Geri ödə
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Assign Package Modal */}
+      <Modal isOpen={showAssignPackageModal} onClose={() => setShowAssignPackageModal(false)} title={`Paket Təyin Et — ${assignTargetUser?.full_name || ''}`}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Paket</label>
+            <select
+              value={selectedPackageId}
+              onChange={(e) => setSelectedPackageId(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            >
+              <option value="">Seç</option>
+              {packagesList.map((p) => (
+                <option key={p.id} value={p.id}>{p.title} — {p.discount_percent}% — {p.validity_days} gün</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowAssignPackageModal(false)} className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors">
+              Ləğv et
+            </button>
+            <button
+              onClick={async () => {
+                if (!assignTargetUser || selectedPackageId === '') return;
+                try {
+                  await api.adminSubscribeUserPackage(assignTargetUser.id, selectedPackageId as number);
+                  const res = await api.userActivePackageByUserId(assignTargetUser.id);
+                  setUserActivePkgMap(prev => ({ ...prev, [assignTargetUser.id]: res?.data ?? null }));
+                  setShowAssignPackageModal(false);
+                } catch {}
+              }}
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all"
+            >
+              Təyin et
             </button>
           </div>
         </div>

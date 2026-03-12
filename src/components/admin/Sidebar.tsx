@@ -4,25 +4,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, Users, ArrowLeftRight, Tag, Layers,
-  MessageSquare, BookOpen, Image, Map, ChevronLeft, ChevronRight, X, LogOut
+  MessageSquare, BookOpen, Image, Map, ChevronLeft, ChevronRight, X, LogOut, Package as PackageIcon
 } from 'lucide-react';
 
 interface NavItem {
   id: PageType;
   label: string;
   icon: React.ReactNode;
-  badge?: number;
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'İdarə Paneli', icon: <LayoutDashboard size={20} /> },
-  { id: 'equipments', label: 'Cihazlar', icon: <Monitor size={20} />, badge: 15 },
+  { id: 'equipments', label: 'Cihazlar', icon: <Monitor size={20} /> },
   { id: 'map', label: 'Xəritə', icon: <Map size={20} /> },
-  { id: 'users', label: 'İstifadəçilər', icon: <Users size={20} />, badge: 12 },
+  { id: 'users', label: 'İstifadəçilər', icon: <Users size={20} /> },
   { id: 'transactions', label: 'Əməliyyatlar', icon: <ArrowLeftRight size={20} /> },
   { id: 'brands', label: 'Brendlər', icon: <Tag size={20} /> },
   { id: 'categories', label: 'Kateqoriyalar', icon: <Layers size={20} /> },
-  { id: 'forum', label: 'Forum', icon: <MessageSquare size={20} />, badge: 1 },
+  { id: 'packages', label: 'Paketlər', icon: <PackageIcon size={20} /> },
+  { id: 'forum', label: 'Forum', icon: <MessageSquare size={20} /> },
   { id: 'stories', label: 'Hekayələr', icon: <BookOpen size={20} /> },
   { id: 'banners', label: 'Reklamlar', icon: <Image size={20} /> },
 ];
@@ -40,6 +40,7 @@ const Sidebar: React.FC = () => {
     transactions: '/transactions',
     brands: '/brands',
     categories: '/categories',
+    packages: '/packages',
     forum: '/forum',
     stories: '/stories',
     banners: '/banners',
@@ -126,11 +127,6 @@ const Sidebar: React.FC = () => {
               {sidebarOpen && (
                 <>
                   <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-2 py-0.5 rounded-full font-semibold">
-                      {item.badge}
-                    </span>
-                  )}
                 </>
               )}
             </button>

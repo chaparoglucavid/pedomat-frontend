@@ -102,15 +102,25 @@ const EquipmentPage: React.FC = () => {
   };
 
   const handleAddStock = () => {
-    if (selectedEquipment) {
-      setEquipmentList(prev => prev.map(e =>
-        e.id === selectedEquipment.id
-          ? { ...e, current_ped_count: e.current_ped_count + stockForm.quantity }
-          : e
-      ));
-      setShowAddStockModal(false);
-      setStockForm({ brand_id: 1, category_id: 1, quantity: 10 });
-    }
+    if (!selectedEquipment) return;
+    const qty = Number(stockForm.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    const pedCategoryId = Number(stockForm.category_id);
+    const run = async () => {
+      try {
+        await api.equipmentAddStock(selectedEquipment.id, pedCategoryId, qty);
+        setEquipmentList(prev => prev.map(e =>
+          e.id === selectedEquipment.id
+            ? { ...e, current_ped_count: e.current_ped_count + qty }
+            : e
+        ));
+        setShowAddStockModal(false);
+        setStockForm({ brand_id: 1, category_id: 1, quantity: 10 });
+      } catch {
+        // TODO: show error toast if needed
+      }
+    };
+    run();
   };
 
   const handleEdit = () => {

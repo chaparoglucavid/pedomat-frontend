@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type PageType = 'dashboard' | 'equipments' | 'users' | 'user-details' | 'transactions' | 'brands' | 'categories' | 'forum' | 'stories' | 'banners' | 'map';
+export type PageType = 'dashboard' | 'equipments' | 'users' | 'user-details' | 'transactions' | 'brands' | 'categories' | 'forum' | 'stories' | 'banners' | 'packages' | 'map';
 
 interface AppContextType {
   sidebarOpen: boolean;
