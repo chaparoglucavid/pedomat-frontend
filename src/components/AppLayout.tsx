@@ -12,6 +12,7 @@ import ForumPage from './admin/ForumPage';
 import StoriesPage from './admin/StoriesPage';
 import BannersPage from './admin/BannersPage';
 import MapView from './admin/MapView';
+import UserDetailsPage from './admin/UserDetailsPage';
 
 const AppLayout: React.FC = () => {
   const { sidebarOpen, currentPage } = useAppContext();
@@ -21,6 +22,7 @@ const AppLayout: React.FC = () => {
       case 'dashboard': return <Dashboard />;
       case 'equipments': return <EquipmentPage />;
       case 'users': return <UsersPage />;
+      case 'user-details': return <UserDetailsPage />;
       case 'transactions': return <TransactionsPage />;
       case 'brands': return <BrandsPage />;
       case 'categories': return <CategoriesPage />;

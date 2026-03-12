@@ -82,11 +82,35 @@ const forumUpdate = (id: number | string, payload: any) => request(`/forums/${id
 const forumDelete = (id: number | string) => request(`/forums/${id}`, 'DELETE');
 const forumComment = (id: number | string, payload: any) => request(`/forums/${id}/comments`, 'POST', payload);
 
+const stories = () => request('/stories', 'GET');
+const storyShow = (id: number | string) => request(`/stories/${id}`, 'GET');
+const storyStore = (formData: FormData) => {
+  const token = getToken();
+  return fetch(`${BASE_URL}/stories`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  }).then(res => res.json());
+};
+const storyUpdate = (id: number | string, formData: FormData) => {
+  const token = getToken();
+  // Laravel multipart/form-data doesn't work well with PUT, so we use POST with _method=PUT or just a POST route
+  return fetch(`${BASE_URL}/stories/${id}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  }).then(res => res.json());
+};
+const storyDelete = (id: number | string) => request(`/stories/${id}`, 'DELETE');
+
 const transactionHistories = () => request('/transaction-histories', 'GET');
 const transactionHistoryShow = (id: number | string) => request(`/transaction-histories/${id}`, 'GET');
 const me = () => request('/user', 'GET');
 const users = () => request('/users', 'GET');
 const userShow = (id: number | string) => request(`/users/${id}`, 'GET');
+const userUpdate = (id: number | string, payload: any) => request(`/users/${id}`, 'PUT', payload);
+const userUpdateStatus = (id: number | string, status: string) => request(`/users/${id}/status`, 'PUT', { system_status: status });
+const userTopUpBalance = (id: number | string, amount: number, paymentMethod: string = 'card') => request(`/users/${id}/top-up-balance`, 'POST', { amount, paymentMethod, user_id: id }); // Added based on requirement
 
 export const api = {
   login,
@@ -117,11 +141,19 @@ export const api = {
   forumUpdate,
   forumDelete,
   forumComment,
+  stories,
+  storyShow,
+  storyStore,
+  storyUpdate,
+  storyDelete,
   transactionHistories,
   transactionHistoryShow,
   me,
   users,
   userShow,
+  userUpdate,
+  userUpdateStatus,
+  userTopUpBalance,
   getToken,
   setToken,
 };

@@ -279,6 +279,10 @@ export const getStatusColor = (status: string) => {
     case 'deleted': return 'bg-gray-100 text-gray-700';
     case 'pending': return 'bg-amber-100 text-amber-700';
     case 'inactive': return 'bg-gray-100 text-gray-700';
+    case 'verified': return 'bg-emerald-100 text-emerald-700';
+    case 'unverified': return 'bg-amber-100 text-amber-700';
+    case 'banned': return 'bg-red-100 text-red-700';
+    case 'deactivated': return 'bg-gray-100 text-gray-700';
     default: return 'bg-gray-100 text-gray-700';
   }
 };
@@ -295,6 +299,10 @@ export const getStatusLabel = (status: string) => {
     case 'deleted': return 'Silinmiş';
     case 'pending': return 'Gözləyir';
     case 'inactive': return 'Deaktiv';
+    case 'verified': return 'Təsdiqlənmiş';
+    case 'unverified': return 'Təsdiqlənməmiş';
+    case 'banned': return 'Ban edilib';
+    case 'deactivated': return 'Dondurulub';
     default: return status;
   }
 };

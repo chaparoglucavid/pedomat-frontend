@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type PageType = 'dashboard' | 'equipments' | 'users' | 'transactions' | 'brands' | 'categories' | 'forum' | 'stories' | 'banners' | 'map';
+export type PageType = 'dashboard' | 'equipments' | 'users' | 'user-details' | 'transactions' | 'brands' | 'categories' | 'forum' | 'stories' | 'banners' | 'map';
 
 interface AppContextType {
   sidebarOpen: boolean;
@@ -9,6 +9,8 @@ interface AppContextType {
   setCurrentPage: (page: PageType) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  selectedUserId: number | null;
+  setSelectedUserId: (id: number | null) => void;
 }
 
 const defaultAppContext: AppContextType = {
@@ -18,6 +20,8 @@ const defaultAppContext: AppContextType = {
   setCurrentPage: () => {},
   searchQuery: '',
   setSearchQuery: () => {},
+  selectedUserId: null,
+  setSelectedUserId: () => {},
 };
 
 const AppContext = createContext<AppContextType>(defaultAppContext);
@@ -33,6 +37,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -57,6 +62,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentPage,
         searchQuery,
         setSearchQuery,
+        selectedUserId,
+        setSelectedUserId,
       }}
     >
       {children}

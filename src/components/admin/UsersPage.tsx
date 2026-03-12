@@ -10,8 +10,10 @@ import {
 } from '@/data/mockData';
 import type { User } from '@/data/mockData';
 import { api } from '@/lib/api';
+import { useAppContext } from '@/contexts/AppContext';
 
 const UsersPage: React.FC = () => {
+  const { setCurrentPage, setSelectedUserId } = useAppContext();
   const [userList, setUserList] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -21,9 +23,9 @@ const UsersPage: React.FC = () => {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState(5);
   const [refundAmount, setRefundAmount] = useState(1);
-  const [expandedUser, setExpandedUser] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updating, setUpdating] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -78,14 +80,29 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const handleBlock = (userId: number) => {
-    setUserList(prev => prev.map(u =>
-      u.id === userId ? { ...u, status: u.status === 'blocked' ? 'active' : 'blocked' } : u
+  const handleStatusChange = async (userId: number, newStatus: string) => {
+    const prevStatus = userList.find(u => u.id === userId)?.system_status;
+    setUpdating(prev => ({ ...prev, [userId]: true }));
+    
+    // Optimistically update the UI
+    setUserList(prev => prev.map(u => 
+      u.id === userId ? { ...u, system_status: newStatus } : u
     ));
+
+    try {
+      await api.userUpdateStatus(userId, newStatus);
+    } catch (err) {
+      // Revert if error
+      setUserList(prev => prev.map(u => 
+        u.id === userId ? { ...u, system_status: prevStatus } : u
+      ));
+      console.error('Status yenilənərkən xəta:', err);
+    } finally {
+      setUpdating(prev => ({ ...prev, [userId]: false }));
+    }
   };
 
-  const getUserTransactions = (userId: number) =>
-    transactionLogs
+  const getUserTransactions = (userId: number) =>    transactionLogs
       .filter(t => t.user_id === userId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -117,9 +134,10 @@ const UsersPage: React.FC = () => {
           className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
         >
           <option value="all">Bütün statuslar</option>
-          <option value="active">Aktiv</option>
-          <option value="blocked">Bloklanmış</option>
-          <option value="deleted">Silinmiş</option>
+          <option value="verified">Təsdiqlənmiş</option>
+          <option value="unverified">Təsdiqlənməmiş</option>
+          <option value="banned">Ban edilib</option>
+          <option value="deactivated">Dondurulub</option>
         </select>
       </div>
 
@@ -130,12 +148,12 @@ const UsersPage: React.FC = () => {
           <p className="text-xs text-blue-600">Ümumi istifadəçi</p>
         </div>
         <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-          <p className="text-2xl font-bold text-emerald-700">{userList.filter(u => (u.system_status || u.activity_status || u.status) === 'active').length}</p>
-          <p className="text-xs text-emerald-600">Aktiv</p>
+          <p className="text-2xl font-bold text-emerald-700">{userList.filter(u => (u.system_status || u.activity_status || u.status) === 'verified').length}</p>
+          <p className="text-xs text-emerald-600">Təsdiqlənmiş</p>
         </div>
         <div className="bg-red-50 rounded-xl p-4 border border-red-100">
-          <p className="text-2xl font-bold text-red-700">{userList.filter(u => (u.system_status || u.activity_status || u.status) === 'blocked').length}</p>
-          <p className="text-xs text-red-600">Bloklanmış</p>
+          <p className="text-2xl font-bold text-red-700">{userList.filter(u => (u.system_status || u.activity_status || u.status) === 'banned').length}</p>
+          <p className="text-xs text-red-600">Ban edilib</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
           <p className="text-2xl font-bold text-purple-700">{userList.reduce((s, u) => s + (u.user_current_balance ?? u.wallet_balance ?? 0), 0).toFixed(2)} AZN</p>
@@ -199,9 +217,17 @@ const UsersPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${getStatusColor((user.system_status || user.activity_status || user.status) || 'active')}`}>
-                        {getStatusLabel((user.system_status || user.activity_status || user.status) || 'active')}
-                      </span>
+                      <select
+                        value={(user.system_status || user.activity_status || user.status) || 'unverified'}
+                        onChange={(e) => handleStatusChange(user.id, e.target.value)}
+                        disabled={!!updating[user.id]}
+                        className={`text-xs font-medium px-3 py-1.5 rounded-lg border-0 cursor-pointer ${getStatusColor((user.system_status || user.activity_status || user.status) || 'unverified')} ${updating[user.id] ? 'opacity-60' : ''}`}
+                      >
+                        <option value="verified">Təsdiqlənmiş</option>
+                        <option value="unverified">Təsdiqlənməmiş</option>
+                        <option value="banned">Ban edilib</option>
+                        <option value="deactivated">Dondurulub</option>
+                      </select>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-sm font-bold text-slate-800">{Number(user.user_current_balance ?? user.wallet_balance ?? 0).toFixed(2)} AZN</span>
@@ -210,9 +236,12 @@ const UsersPage: React.FC = () => {
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => { setExpandedUser(expandedUser === user.id ? null : user.id); }}
+                          onClick={() => { 
+                            setSelectedUserId(user.id);
+                            setCurrentPage('user-details');
+                          }}
                           className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600 transition-colors"
-                          title="Əməliyyat tarixçəsi"
+                          title="Ətraflı"
                         >
                           <Eye size={16} />
                         </button>
@@ -230,55 +259,9 @@ const UsersPage: React.FC = () => {
                         >
                           <RotateCcw size={16} />
                         </button>
-                        <button
-                          onClick={() => handleBlock(user.id)}
-                          className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${user.status === 'blocked' ? 'text-emerald-500 hover:text-emerald-600' : 'text-slate-400 hover:text-red-600'}`}
-                          title={user.status === 'blocked' ? 'Bloku aç' : 'Blokla'}
-                        >
-                          <Ban size={16} />
-                        </button>
                       </div>
                     </td>
                   </tr>
-                  {/* Expanded Transaction History */}
-                  {expandedUser === user.id && (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-4 bg-slate-50/80">
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Əməliyyat Tarixçəsi — {user.ad} {user.soyad}</h4>
-                          {getUserTransactions(user.id).length === 0 ? (
-                            <p className="text-sm text-slate-400">Əməliyyat tapılmadı</p>
-                          ) : (
-                            getUserTransactions(user.id).map(t => {
-                              const eq = t.equipment_id ? getEquipmentById(t.equipment_id) : null;
-                              const brand = t.brand_id ? getBrandById(t.brand_id) : null;
-                              const cat = t.category_id ? getCategoryById(t.category_id) : null;
-                              return (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
-                                  <div className="flex items-center gap-3">
-                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${getActionTypeColor(t.action_type)}`}>
-                                      {getActionTypeLabel(t.action_type)}
-                                    </span>
-                                    <div className="text-sm text-slate-600">
-                                      {eq && <span>{eq.number}</span>}
-                                      {brand && <span className="ml-2 text-slate-400">({brand.name})</span>}
-                                      {cat && <span className="ml-1 text-slate-400">— {cat.name}</span>}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold text-slate-700">{t.quantity > 0 ? `${t.quantity} ped` : '—'}</p>
-                                    <p className="text-[10px] text-slate-400">
-                                      {new Date(t.created_at).toLocaleString('az-AZ', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </React.Fragment>
               ))}
             </tbody>
