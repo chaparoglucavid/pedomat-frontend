@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, Shield } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
+  console.log(123)
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -48,12 +49,7 @@ const LoginPage: React.FC = () => {
 
     const result = await login(email, password, rememberMe);
 
-    if(email === 'chaparoglucavid@gmail.com' && password === 'salamadmin')
-    {
-      result.success = true;
-    } else {
-      result.success = false;
-    }
+    console.log(result);
 
     if (result.success) {
       navigate('/', { replace: true });

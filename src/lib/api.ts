@@ -19,9 +19,10 @@ const request = async (path: string, method: HttpMethod = 'GET', body?: any) => 
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-    credentials: 'include',
+    credentials: 'omit',
   });
 
+  console.log(res.status, res.statusText);
   const contentType = res.headers.get('content-type');
   const data = contentType && contentType.includes('application/json') ? await res.json() : await res.text();
   if (!res.ok) {
@@ -40,6 +41,7 @@ const login = async (email: string, password: string) => {
     setToken(data.token || data.access_token);
   }
   return data;
+
 };
 
 const logout = async () => {

@@ -46,36 +46,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchAdminProfile = useCallback(async (userId: string) => {
-    setAdminProfile({
-      id: userId,
-      user_id: userId,
-      full_name: 'Admin',
-      role: 'admin',
-      avatar_url: null,
-      is_active: true,
+  const buildAdminProfile = useCallback((backendUser: any): AdminProfile => {
+    return {
+      id: String(backendUser.id),
+      user_id: String(backendUser.id),
+      full_name: backendUser.full_name || backendUser.name || 'Admin',
+      role: backendUser.role || 'admin',
+      avatar_url: backendUser.avatar_url || null,
+      is_active: backendUser.is_active ?? true,
       last_login_at: new Date().toISOString(),
-    });
+    };
   }, []);
 
-  const updateLastLogin = useCallback(async () => {
-    setAdminProfile(prev => prev ? { ...prev, last_login_at: new Date().toISOString() } : prev);
+  const buildAuthUser = useCallback((backendUser: any): User => {
+    return {
+      id: String(backendUser.id),
+      email: backendUser.email,
+      user_metadata: {
+        full_name: backendUser.full_name || backendUser.name || 'Admin',
+        role: backendUser.role || 'admin',
+        avatar_url: backendUser.avatar_url || null,
+      },
+    } as unknown as User;
   }, []);
 
-  // Initialize auth state
+  const fetchCurrentUser = useCallback(async () => {
+    const me = await api.me();
+    const authUser = buildAuthUser(me);
+    const authSession = { user: authUser } as Session;
+
+    setUser(authUser);
+    setSession(authSession);
+    setAdminProfile(buildAdminProfile(me));
+  }, [buildAuthUser, buildAdminProfile]);
+
   useEffect(() => {
-    const token = api.getToken();
-    if (token) {
-      const fakeUser = { id: 'api-admin', email: 'admin@paddispenser.az', user_metadata: { full_name: 'Admin' } } as unknown as User;
-      const fakeSession = { user: fakeUser } as unknown as Session;
-      setUser(fakeUser);
-      setSession(fakeSession);
-      fetchAdminProfile(fakeUser.id);
-    }
-    setIsLoading(false);
-  }, [fetchAdminProfile]);
+    const init = async () => {
+      try {
+        const token = api.getToken();
+        if (token) {
+          await fetchCurrentUser();
+        }
+      } catch (err) {
+        api.setToken(null);
+        setUser(null);
+        setSession(null);
+        setAdminProfile(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Auto logout on token removal or invalidation
+    init();
+  }, [fetchCurrentUser]);
+
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'auth_token' && e.newValue === null) {
@@ -84,70 +108,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAdminProfile(null);
       }
     };
+
     const handleUnauthorized = () => {
       setUser(null);
       setSession(null);
       setAdminProfile(null);
     };
+
     window.addEventListener('storage', handleStorage);
     window.addEventListener('auth:logout', handleUnauthorized as EventListener);
+
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('auth:logout', handleUnauthorized as EventListener);
     };
   }, []);
 
-  // Handle "remember me" - clear session on tab close if not remembered
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const rememberMe = localStorage.getItem(REMEMBER_ME_KEY);
-      if (rememberMe !== 'true' && session) {
-        // We don't actually sign out here as beforeunload is unreliable
-        // Instead we use sessionStorage to track tab sessions
-        sessionStorage.setItem('pd_tab_active', 'true');
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [session]);
-
-  // Check if tab was closed without "remember me"
-  useEffect(() => {
-    sessionStorage.setItem('pd_tab_active', 'true');
-  }, []);
-
-  const login = async (email: string, password: string, rememberMe: boolean): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+      email: string,
+      password: string,
+      rememberMe: boolean
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       localStorage.setItem(REMEMBER_ME_KEY, rememberMe ? 'true' : 'false');
-      if (import.meta.env.DEV && email === 'admin@gmail.com' && password === 'salamadmin') {
-        const fakeUser = { id: 'dev-admin', email, user_metadata: { full_name: 'Admin' } } as unknown as User;
-        const fakeSession = { user: fakeUser } as unknown as Session;
-        setUser(fakeUser);
-        setSession(fakeSession);
-        setAdminProfile({
-          id: 'dev-profile',
-          user_id: 'dev-admin',
-          full_name: 'Admin',
-          role: 'admin',
-          avatar_url: null,
-          is_active: true,
-          last_login_at: new Date().toISOString(),
-        });
-        return { success: true };
-      }
 
       await api.login(email, password);
+      await fetchCurrentUser();
 
-      const fakeUser = { id: 'api-admin', email, user_metadata: { full_name: 'Admin' } } as unknown as User;
-      const fakeSession = { user: fakeUser } as unknown as Session;
-      setUser(fakeUser);
-      setSession(fakeSession);
-      await fetchAdminProfile(fakeUser.id);
-      await updateLastLogin();
       return { success: true };
-    } catch (err) {
-      return { success: false, error: 'Giriş zamanı xəta baş verdi' };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.data?.message || err?.message || 'Giriş zamanı xəta baş verdi',
+      };
     }
   };
 
@@ -156,11 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(REMEMBER_ME_KEY);
       sessionStorage.removeItem('pd_tab_active');
       await api.logout();
+    } finally {
       setUser(null);
       setSession(null);
       setAdminProfile(null);
-    } catch (err) {
-      console.error('Logout error:', err);
     }
   };
 
@@ -173,20 +165,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        adminProfile,
-        isLoading,
-        isAuthenticated: !!session && !!user,
-        login,
-        logout,
-        resetPassword,
-        updatePassword,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{
+            user,
+            session,
+            adminProfile,
+            isLoading,
+            isAuthenticated: !!user && !!session,
+            login,
+            logout,
+            resetPassword,
+            updatePassword,
+          }}
+      >
+        {children}
+      </AuthContext.Provider>
   );
 };
