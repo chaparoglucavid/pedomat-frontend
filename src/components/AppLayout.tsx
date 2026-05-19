@@ -4,9 +4,11 @@ import Sidebar from './admin/Sidebar';
 import Header from './admin/Header';
 import Dashboard from './admin/Dashboard';
 import EquipmentPage from './admin/EquipmentPage';
+import EquipmentReviewsPage from './admin/EquipmentReviewsPage';
 import UsersPage from './admin/UsersPage';
 import TransactionsPage from './admin/TransactionsPage';
 import BrandsPage from './admin/BrandsPage';
+import ProductCategoriesPage from './admin/ProductCategoriesPage';
 import CategoriesPage from './admin/CategoriesPage';
 import ForumPage from './admin/ForumPage';
 import StoriesPage from './admin/StoriesPage';
@@ -22,10 +24,12 @@ const AppLayout: React.FC = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
       case 'equipments': return <EquipmentPage />;
+      case 'equipment-reviews': return <EquipmentReviewsPage />;
       case 'users': return <UsersPage />;
       case 'user-details': return <UserDetailsPage />;
       case 'transactions': return <TransactionsPage />;
       case 'brands': return <BrandsPage />;
+      case 'product-categories': return <ProductCategoriesPage />;
       case 'categories': return <CategoriesPage />;
       case 'forum': return <ForumPage />;
       case 'stories': return <StoriesPage />;

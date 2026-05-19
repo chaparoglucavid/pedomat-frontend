@@ -32,12 +32,26 @@ const EquipmentPage: React.FC = () => {
   const [detailError, setDetailError] = useState('');
   const [detailStocks, setDetailStocks] = useState<any[]>([]);
   const [detailOrders, setDetailOrders] = useState<any[]>([]);
+  const [apiBrands, setApiBrands] = useState<any[]>([]);
+  const [apiCategories, setApiCategories] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await api.equipments();
-        const mapped = (Array.isArray(data) ? data : []).map((e: any) => ({
+        const [eqRes, brRes, catRes] = await Promise.all([
+          api.equipments(),
+          api.brands(),
+          api.pedCategories()
+        ]);
+
+        const eqData = Array.isArray(eqRes) ? eqRes : (eqRes?.data ?? eqRes);
+        const brData = Array.isArray(brRes) ? brRes : (brRes?.data ?? brRes);
+        const catData = Array.isArray(catRes) ? catRes : (catRes?.data ?? catRes);
+
+        setApiBrands(Array.isArray(brData) ? brData : []);
+        setApiCategories(Array.isArray(catData) ? catData : []);
+
+        const mapped = (Array.isArray(eqData) ? eqData : []).map((e: any) => ({
           id: e.id,
           number: e.equipment_number,
           name: e.equipment_name,
@@ -51,7 +65,7 @@ const EquipmentPage: React.FC = () => {
         setError('');
       } catch {
         setEquipmentList([]);
-        setError('Cihazlar yüklənə bilmədi');
+        setError('Məlumatlar yüklənə bilmədi');
       }
       setLoading(false);
     };
@@ -125,12 +139,30 @@ const EquipmentPage: React.FC = () => {
 
   const handleEdit = () => {
     if (selectedEquipment) {
-      setEquipmentList(prev => prev.map(e =>
-        e.id === selectedEquipment.id
-          ? { ...e, name: editForm.name, address: editForm.address, status: editForm.status as Equipment['status'] }
-          : e
-      ));
-      setShowEditModal(false);
+      const run = async () => {
+        try {
+          const updated = await api.equipmentUpdate(selectedEquipment.id, {
+            equipment_name: editForm.name,
+            current_address: editForm.address,
+            equipment_status: editForm.status
+          });
+          const data = updated?.data || updated;
+          setEquipmentList(prev => prev.map(e =>
+            e.id === selectedEquipment.id
+              ? {
+                  ...e,
+                  name: data.equipment_name || editForm.name,
+                  address: data.current_address || editForm.address,
+                  status: normalizeEquipmentStatus(data.equipment_status || editForm.status) as Equipment['status']
+                }
+              : e
+          ));
+          setShowEditModal(false);
+        } catch (err) {
+          console.error('Update failed', err);
+        }
+      };
+      run();
     }
   };
 
@@ -156,7 +188,13 @@ const EquipmentPage: React.FC = () => {
     };
     run();
   };
-  const openAddStock = (eq: Equipment) => { setSelectedEquipment(eq); setShowAddStockModal(true); };
+  const openAddStock = (eq: Equipment) => {
+    setSelectedEquipment(eq);
+    const firstBrandId = apiBrands[0]?.id || '';
+    const firstCatId = apiCategories.find(c => c.brand?.id === firstBrandId || !c.brand)?.id || '';
+    setStockForm({ brand_id: firstBrandId, category_id: firstCatId, quantity: 10 });
+    setShowAddStockModal(true);
+  };
   const openEdit = (eq: Equipment) => {
     setSelectedEquipment(eq);
     setEditForm({ name: eq.name, address: eq.address, status: eq.status });
@@ -429,24 +467,32 @@ const EquipmentPage: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Brend</label>
             <select
               value={stockForm.brand_id}
-              onChange={(e) => setStockForm(f => ({ ...f, brand_id: Number(e.target.value) }))}
+              onChange={(e) => {
+                const bId = Number(e.target.value);
+                const firstCatId = apiCategories.find(c => c.brand?.id === bId || !c.brand)?.id || '';
+                setStockForm(f => ({ ...f, brand_id: bId, category_id: firstCatId }));
+              }}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             >
-              {brands.filter(b => b.status === 'active').map(b => (
+              <option value="">Seçin...</option>
+              {apiBrands.map(b => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Kateqoriya</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Kateqoriya (Ped)</label>
             <select
               value={stockForm.category_id}
               onChange={(e) => setStockForm(f => ({ ...f, category_id: Number(e.target.value) }))}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             >
-              {categories.filter(c => c.status === 'active').map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              <option value="">Seçin...</option>
+              {apiCategories
+                .filter(c => !stockForm.brand_id || c.brand?.id === stockForm.brand_id)
+                .map(c => (
+                  <option key={c.id} value={c.id}>{c.category_name}</option>
+                ))}
             </select>
           </div>
           <div>

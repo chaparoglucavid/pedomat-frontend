@@ -14,7 +14,8 @@ const TransactionsPage: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await api.transactionHistories();
+        const response = await api.transactionHistories();
+        const data = Array.isArray(response) ? response : (response?.data ?? response);
         setLogs(Array.isArray(data) ? data : []);
         setError('');
       } catch {

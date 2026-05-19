@@ -8,10 +8,11 @@ import { AlertCircle } from 'lucide-react';
 const CategoriesPage: React.FC = () => {
   const [catList, setCatList] = useState<any[]>([]);
   const [brandList, setBrandList] = useState<any[]>([]);
+  const [productCatList, setProductCatList] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCat, setEditingCat] = useState<any | null>(null);
-  const [form, setForm] = useState({ category_name: '', unit_price: 0.5, status: 'active', reason_for_use: '', brand_id: '' as number | '' });
+  const [form, setForm] = useState({ category_name: '', unit_price: 0.5, status: 'active', reason_for_use: '', brand_id: '' as number | '', product_category_id: '' as number | '', image: null as File | null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -24,10 +25,13 @@ const CategoriesPage: React.FC = () => {
         const bres = await api.brands();
         const bdata = Array.isArray(bres) ? bres : (bres?.data ?? bres);
         setBrandList(Array.isArray(bdata) ? bdata : []);
+        const pcres = await api.productCategories();
+        setProductCatList(Array.isArray(pcres) ? pcres : []);
         setError('');
       } catch {
         setCatList([]);
         setBrandList([]);
+        setProductCatList([]);
         setError('Kateqoriyalar yüklənə bilmədi');
       }
       setLoading(false);
@@ -39,7 +43,7 @@ const CategoriesPage: React.FC = () => {
     !search || (c.category_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const openAdd = () => { setEditingCat(null); setForm({ category_name: '', unit_price: 0.5, status: 'active', reason_for_use: '', brand_id: '' }); setShowModal(true); };
+  const openAdd = () => { setEditingCat(null); setForm({ category_name: '', unit_price: 0.5, status: 'active', reason_for_use: '', brand_id: '', product_category_id: '', image: null }); setShowModal(true); };
   const openEdit = (c: any) => {
     setEditingCat(c);
     setForm({
@@ -48,17 +52,26 @@ const CategoriesPage: React.FC = () => {
       status: c.status,
       reason_for_use: c.reason_for_use || '',
       brand_id: c.brand?.id ?? '',
+      product_category_id: c.product_category?.id ?? '',
+      image: null,
     });
     setShowModal(true);
   };
 
   const handleSave = () => {
     if (!form.category_name.trim()) return;
+    const formData = new FormData();
+    formData.append('category_name', form.category_name);
+    formData.append('status', form.status);
+    formData.append('unit_price', String(form.unit_price));
+    formData.append('reason_for_use', form.reason_for_use);
+    if (form.brand_id !== '') formData.append('brand_id', String(form.brand_id));
+    if (form.product_category_id !== '') formData.append('product_category_id', String(form.product_category_id));
+    if (form.image) formData.append('image', form.image);
+
     if (editingCat) {
       const run = async () => {
-        const reqPayload: any = { category_name: form.category_name, status: form.status, unit_price: form.unit_price, reason_for_use: form.reason_for_use };
-        if (form.brand_id !== '') reqPayload.brand_id = form.brand_id;
-        const updated = await api.pedCategoryUpdate(editingCat.id, reqPayload);
+        const updated = await api.pedCategoryUpdate(editingCat.id, formData);
         const updatedPayload = updated?.data || updated;
         setCatList(prev => prev.map(c => c.id === editingCat.id ? { ...c, ...updatedPayload } : c));
         setShowModal(false);
@@ -66,9 +79,7 @@ const CategoriesPage: React.FC = () => {
       run();
     } else {
       const run = async () => {
-        const reqPayload: any = { category_name: form.category_name, status: form.status, unit_price: form.unit_price, reason_for_use: form.reason_for_use };
-        if (form.brand_id !== '') reqPayload.brand_id = form.brand_id;
-        const created = await api.pedCategoryStore(reqPayload);
+        const created = await api.pedCategoryStore(formData);
         const newCat = created?.data || created;
         setCatList(prev => [...prev, newCat]);
         setShowModal(false);
@@ -120,6 +131,7 @@ const CategoriesPage: React.FC = () => {
               <tr className="bg-slate-50/80">
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">ID</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Ad</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Əsas Kateqoriya</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Brend</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Vahid qiymət</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3">Status</th>
@@ -139,12 +151,17 @@ const CategoriesPage: React.FC = () => {
                   <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">#{cat.id}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white">
-                        <Layers size={14} />
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-100 flex-shrink-0">
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.category_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Layers size={18} className="text-slate-400" />
+                        )}
                       </div>
                       <span className="text-sm font-medium text-slate-700">{cat.category_name}</span>
                     </div>
                   </td>
+                  <td className="px-5 py-3.5 text-sm text-slate-600">{cat.product_category?.name ?? '—'}</td>
                   <td className="px-5 py-3.5 text-sm text-slate-600">{cat.brand?.name ?? '—'}</td>
                   <td className="px-5 py-3.5">
                     <span className="text-sm font-bold text-slate-800">{Number(cat.unit_price).toFixed(2)} AZN</span>
@@ -174,6 +191,15 @@ const CategoriesPage: React.FC = () => {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingCat ? 'Kateqoriya Redaktə' : 'Yeni Kateqoriya'}>
         <div className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Şəkil</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setForm(f => ({ ...f, image: e.target.files?.[0] || null }))}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Kateqoriya adı</label>
             <input
               type="text"
@@ -202,6 +228,19 @@ const CategoriesPage: React.FC = () => {
               onChange={(e) => setForm(f => ({ ...f, reason_for_use: e.target.value }))}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Əsas Kateqoriya</label>
+            <select
+              value={form.product_category_id}
+              onChange={(e) => setForm(f => ({ ...f, product_category_id: Number(e.target.value) }))}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            >
+              <option value="">Seçin...</option>
+              {productCatList.map(pc => (
+                <option key={pc.id} value={pc.id}>{pc.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Brend</label>

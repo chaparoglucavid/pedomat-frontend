@@ -65,6 +65,8 @@ const equipments = () => request('/equipments', 'GET');
 const equipmentDetails = (id: number | string) => request(`/equipment-details/${id}`, 'GET');
 const equipmentUpdate = (id: number | string, payload: any) => request(`/equipments/${id}`, 'PUT', payload);
 const equipmentAddStock = (id: number | string, ped_category_id: number, quantity: number) => request(`/equipments/${id}/stocks`, 'POST', { ped_category_id, quantity });
+const equipmentReviews = () => request('/equipment-reviews', 'GET');
+const equipmentReviewDelete = (id: number | string) => request(`/equipment-reviews/${id}`, 'DELETE');
 
 const brands = () => request('/brands', 'GET');
 const brandShow = (id: number | string) => request(`/brands/${id}`, 'GET');
@@ -74,9 +76,37 @@ const brandDelete = (id: number | string) => request(`/brands/${id}`, 'DELETE');
 
 const pedCategories = () => request('/ped-categories', 'GET');
 const pedCategoryShow = (id: number | string) => request(`/ped-categories/${id}`, 'GET');
-const pedCategoryStore = (payload: any) => request('/ped-categories', 'POST', payload);
-const pedCategoryUpdate = (id: number | string, payload: any) => request(`/ped-categories/${id}`, 'PUT', payload);
+const pedCategoryStore = (payload: any) => {
+  if (payload instanceof FormData) {
+    const token = getToken();
+    return fetch(`${BASE_URL}/ped-categories`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      body: payload
+    }).then(res => res.json());
+  }
+  return request('/ped-categories', 'POST', payload);
+};
+const pedCategoryUpdate = (id: number | string, payload: any) => {
+  if (payload instanceof FormData) {
+    const token = getToken();
+    // Use POST with _method=PUT for multipart/form-data in Laravel
+    payload.append('_method', 'PUT');
+    return fetch(`${BASE_URL}/ped-categories/${id}`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      body: payload
+    }).then(res => res.json());
+  }
+  return request(`/ped-categories/${id}`, 'PUT', payload);
+};
 const pedCategoryDelete = (id: number | string) => request(`/ped-categories/${id}`, 'DELETE');
+
+const productCategories = () => request('/product-categories', 'GET');
+const productCategoryShow = (id: number | string) => request(`/product-categories/${id}`, 'GET');
+const productCategoryStore = (payload: any) => request('/product-categories', 'POST', payload);
+const productCategoryUpdate = (id: number | string, payload: any) => request(`/product-categories/${id}`, 'PUT', payload);
+const productCategoryDelete = (id: number | string) => request(`/product-categories/${id}`, 'DELETE');
 
 const forums = () => request('/forums', 'GET');
 const forumShow = (id: number | string) => request(`/forums/${id}`, 'GET');
@@ -156,6 +186,7 @@ const adminSubscribeUserPackage = (user_id: number | string, package_id: number 
 const adminCancelUserPackage = (user_id: number | string) => request(`/users/${user_id}/packages/cancel`, 'POST');
 const transactionHistories = () => request('/transaction-histories', 'GET');
 const transactionHistoryShow = (id: number | string) => request(`/transaction-histories/${id}`, 'GET');
+const dashboardStats = () => request('/dashboard-stats', 'GET');
 const me = () => request('/user', 'GET');
 const users = () => request('/users', 'GET');
 const userShow = (id: number | string) => request(`/users/${id}`, 'GET');
@@ -177,6 +208,8 @@ export const api = {
   equipmentDetails,
   equipmentUpdate,
   equipmentAddStock,
+  equipmentReviews,
+  equipmentReviewDelete,
   brands,
   brandShow,
   brandStore,
@@ -187,6 +220,11 @@ export const api = {
   pedCategoryStore,
   pedCategoryUpdate,
   pedCategoryDelete,
+  productCategories,
+  productCategoryShow,
+  productCategoryStore,
+  productCategoryUpdate,
+  productCategoryDelete,
   forums,
   forumShow,
   forumStore,
@@ -218,6 +256,7 @@ export const api = {
   adminCancelUserPackage,
   transactionHistories,
   transactionHistoryShow,
+  dashboardStats,
   me,
   users,
   userShow,

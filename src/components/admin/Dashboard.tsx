@@ -4,104 +4,55 @@ import {
   ArrowUpRight, ArrowDownRight, Activity, Wallet
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area, BarChart, Bar
 } from 'recharts';
 import { api } from '@/lib/api';
-import { normalizeEquipmentStatus } from '@/data/mockData';
 import { useAppContext } from '@/contexts/AppContext';
 
 const COLORS = ['#0099CC', '#E30A17', '#00B388', '#9333ea', '#f59e0b'];
 
 const Dashboard: React.FC = () => {
   const { setCurrentPage } = useAppContext();
-  const [equipments, setEquipments] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [dailyUsageData, setDailyUsageData] = useState<{ gun: string; istifade: number }[]>([]);
-  const brandUsageData: { name: string; deger: number }[] = [];
-  const categoryUsageData: { name: string; deger: number }[] = [];
+  const [statsData, setStatsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [eq, us, tr] = await Promise.all([api.equipments(), api.users(), api.transactionHistories()]);
-        setEquipments(Array.isArray(eq) ? eq : []);
-        setUsers(Array.isArray(us) ? us : []);
-        setTransactions(Array.isArray(tr) ? tr : []);
-      } catch {
-        setEquipments([]);
-        setUsers([]);
-        setTransactions([]);
+        const data = await api.dashboardStats();
+        setStatsData(data);
+      } catch (err) {
+        console.error('Stats loading failed', err);
       }
       setLoading(false);
     };
     load();
   }, []);
 
-  useEffect(() => {
-    const days = 30;
-    const arr: { gun: string; istifade: number }[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString('az-AZ', { day: '2-digit', month: 'short' });
-      const count = transactions.filter(t => (t.created_at || '').startsWith(key)).length;
-      arr.push({ gun: label, istifade: count });
-    }
-    setDailyUsageData(arr);
-  }, [transactions]);
+  const stats = useMemo(() => {
+    if (!statsData) return [];
+    return [
+      { label: 'Aktiv Cihazlar', value: statsData.active_equipments ?? 0, icon: <Monitor size={22} />, color: 'from-emerald-500 to-emerald-600', change: '+2', up: true },
+      { label: 'Deaktiv Cihazlar', value: statsData.deactive_equipments ?? 0, icon: <MonitorOff size={22} />, color: 'from-red-500 to-red-600', change: '-1', up: false },
+      { label: 'Təmirdə Cihazlar', value: statsData.under_repair_equipments ?? 0, icon: <AlertTriangle size={22} />, color: 'from-amber-500 to-amber-600', change: '0', up: false },
+      { label: 'Baxımda Cihazlar', value: statsData.maintenance_equipments ?? 0, icon: <Activity size={22} />, color: 'from-indigo-500 to-indigo-600', change: '0', up: false },
+      { label: 'Oflayn Cihazlar', value: statsData.offline_equipments ?? 0, icon: <MonitorOff size={22} />, color: 'from-red-500 to-red-600', change: '0', up: false },
+      { label: 'Xarab Cihazlar', value: statsData.broken_equipments ?? 0, icon: <AlertTriangle size={22} />, color: 'from-amber-500 to-amber-600', change: '0', up: false },
+      { label: 'Bugünkü Əməliyyat', value: statsData.today_transactions_count ?? 0, icon: <Package size={22} />, color: 'from-cyan-500 to-cyan-600', change: '+12%', up: true },
+      { label: 'Aktiv İstifadəçilər', value: statsData.active_users ?? 0, icon: <Users size={22} />, color: 'from-blue-500 to-blue-600', change: '+3', up: true },
+      { label: 'Ümumi Stok', value: `${statsData.total_ped_stock ?? 0} ped`, icon: <Activity size={22} />, color: 'from-purple-500 to-purple-600', change: '-8%', up: false },
+      { label: 'Son 30 gün əməliyyat', value: statsData.monthly_transactions_count ?? 0, icon: <TrendingUp size={22} />, color: 'from-indigo-500 to-indigo-600', change: '+18%', up: true },
+      { label: 'Ümumi Balans', value: `${(Number(statsData.total_wallet_balance) || 0).toFixed(2)} AZN`, icon: <Wallet size={22} />, color: 'from-teal-500 to-teal-600', change: '+5%', up: true },
+    ];
+  }, [statsData]);
 
-  const activeEquipments = equipments.filter(e => e.equipment_status === 'active').length;
-  const deactiveEquipments = equipments.filter(e => e.equipment_status === 'deactive').length;
-  const underRepairEquipments = equipments.filter(e => e.equipment_status === 'under_repair').length;
-  const maintenanceEquipments = equipments.filter(e => e.equipment_status === 'maintenance').length;
-  const offlineEquipmentsTrue = equipments.filter(e => e.equipment_status === 'offline').length;
-  const brokenEquipmentsTrue = equipments.filter(e => e.equipment_status === 'broken').length;
-  const activeUsers = users.filter(u => (u.system_status || u.activity_status) === 'active').length;
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const todayCount = transactions.filter(t => (t.created_at || '').startsWith(todayKey)).length;
-  const totalPedStock = equipments.reduce((sum, e) => sum + Number(e.current_ped_count ?? 0), 0);
-  const totalWalletBalance = users.reduce((sum, u) => sum + Number(u.user_current_balance ?? 0), 0);
-  const last30Start = new Date(); last30Start.setDate(last30Start.getDate() - 29);
-  const monthlyCount = transactions.filter(t => {
-    const d = new Date(t.created_at);
-    return !isNaN(d.getTime()) && d >= last30Start;
-  }).length;
-
-  const stats = [
-    { label: 'Aktiv Cihazlar', value: activeEquipments, icon: <Monitor size={22} />, color: 'from-emerald-500 to-emerald-600', change: '+2', up: true },
-    { label: 'Deaktiv Cihazlar', value: deactiveEquipments, icon: <MonitorOff size={22} />, color: 'from-red-500 to-red-600', change: '-1', up: false },
-    { label: 'Təmirdə Cihazlar', value: underRepairEquipments, icon: <AlertTriangle size={22} />, color: 'from-amber-500 to-amber-600', change: '0', up: false },
-    { label: 'Baxımda Cihazlar', value: maintenanceEquipments, icon: <Activity size={22} />, color: 'from-indigo-500 to-indigo-600', change: '0', up: false },
-    { label: 'Oflayn Cihazlar', value: offlineEquipmentsTrue, icon: <MonitorOff size={22} />, color: 'from-red-500 to-red-600', change: '0', up: false },
-    { label: 'Xarab Cihazlar', value: brokenEquipmentsTrue, icon: <AlertTriangle size={22} />, color: 'from-amber-500 to-amber-600', change: '0', up: false },
-    { label: 'Bugünkü Əməliyyat', value: todayCount, icon: <Package size={22} />, color: 'from-cyan-500 to-cyan-600', change: '+12%', up: true },
-    { label: 'Aktiv İstifadəçilər', value: activeUsers, icon: <Users size={22} />, color: 'from-blue-500 to-blue-600', change: '+3', up: true },
-    { label: 'Ümumi Stok', value: `${totalPedStock} ped`, icon: <Activity size={22} />, color: 'from-purple-500 to-purple-600', change: '-8%', up: false },
-    { label: 'Son 30 gün əməliyyat', value: monthlyCount, icon: <TrendingUp size={22} />, color: 'from-indigo-500 to-indigo-600', change: '+18%', up: true },
-    { label: 'Ümumi Balans', value: `${totalWalletBalance.toFixed(2)} AZN`, icon: <Wallet size={22} />, color: 'from-teal-500 to-teal-600', change: '+5%', up: true },
-  ];
-
-  const equipmentUsage = useMemo(() => {
-    return equipments
-      .map(e => ({ ...e, usage: 0 }))
-      .slice(0, 5);
-  }, [equipments]);
-
-  const topUsers = useMemo(() => {
-    return users
-      .map(u => ({ ...u, usage: 0 }))
-      .slice(0, 5);
-  }, [users]);
-
-  const recentTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    ).slice(0, 8);
-  }, [transactions]);
+  const dailyUsageData = statsData?.daily_usage || [];
+  const recentTransactions = statsData?.recent_transactions || [];
+  const brandUsageData: any[] = [];
+  const categoryUsageData: any[] = [];
+  const equipmentUsage: any[] = [];
+  const topUsers: any[] = [];
 
   return (
     <div className="space-y-6">
@@ -306,38 +257,43 @@ const Dashboard: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50/80">
-                <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3">İstifadəçi</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3">Növ</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3">№</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3">Məbləğ</th>
-                <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3">Tarix</th>
+                <th className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3">İstifadəçi</th>
+                <th className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3">Məbləğ</th>
+                <th className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3">Növ</th>
+                <th className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3">Tarix</th>
               </tr>
             </thead>
-            <tbody>
-              {recentTransactions.map((t) => {
-                return (
-                  <tr key={t.id} className="border-t border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold">
-                          {(t.user?.full_name || '??').slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-sm text-slate-700 font-medium">{t.user?.full_name || 'Naməlum'}</span>
+            <tbody className="divide-y divide-slate-50">
+              {recentTransactions.map((tr: any) => (
+                <tr key={tr.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-[10px] font-bold">
+                        {(tr.user?.full_name || '??').slice(0, 2).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-                        {t.transaction_type || '—'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-sm text-slate-600">{t.transaction_number || '—'}</td>
-                    <td className="px-6 py-3.5 text-sm font-semibold text-slate-700">{typeof t.amount === 'number' ? `${t.amount.toFixed(2)} AZN` : '—'}</td>
-                    <td className="px-6 py-3.5 text-xs text-slate-400">
-                      {new Date(t.created_at).toLocaleString('az-AZ', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                  </tr>
-                );
-              })}
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{tr.user?.full_name || 'Naməlum'}</p>
+                        <p className="text-[10px] text-slate-400">{tr.user?.email || ''}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`text-sm font-bold ${tr.transaction_type === 'top_up' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {tr.transaction_type === 'top_up' ? '+' : '-'}{Number(tr.amount).toFixed(2)} AZN
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                      tr.transaction_type === 'top_up' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                    }`}>
+                      {tr.transaction_type === 'top_up' ? 'Mədaxil' : 'Məxaric'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-slate-400">
+                    {new Date(tr.created_at).toLocaleString('az-AZ')}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

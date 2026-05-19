@@ -3,7 +3,7 @@ import { useAppContext, PageType } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Monitor, Users, ArrowLeftRight, Tag, Layers,
+  LayoutDashboard, Monitor, Users, ArrowLeftRight, Tag, Layers, Grid, Star,
   MessageSquare, BookOpen, Image, Map, ChevronLeft, ChevronRight, X, LogOut, Package as PackageIcon
 } from 'lucide-react';
 
@@ -16,10 +16,12 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'İdarə Paneli', icon: <LayoutDashboard size={20} /> },
   { id: 'equipments', label: 'Cihazlar', icon: <Monitor size={20} /> },
+  { id: 'equipment-reviews', label: 'Cihaz Rəyləri', icon: <Star size={20} /> },
   { id: 'map', label: 'Xəritə', icon: <Map size={20} /> },
   { id: 'users', label: 'İstifadəçilər', icon: <Users size={20} /> },
   { id: 'transactions', label: 'Əməliyyatlar', icon: <ArrowLeftRight size={20} /> },
   { id: 'brands', label: 'Brendlər', icon: <Tag size={20} /> },
+  { id: 'product-categories', label: 'Əsas Kateqoriyalar', icon: <Grid size={20} /> },
   { id: 'categories', label: 'Kateqoriyalar', icon: <Layers size={20} /> },
   { id: 'packages', label: 'Paketlər', icon: <PackageIcon size={20} /> },
   { id: 'forum', label: 'Forum', icon: <MessageSquare size={20} /> },
@@ -35,11 +37,13 @@ const Sidebar: React.FC = () => {
   const pathMap: Record<PageType, string> = {
     dashboard: '/dashboard',
     equipments: '/equipments',
+    'equipment-reviews': '/equipment-reviews',
     map: '/map',
     users: '/users',
     transactions: '/transactions',
     brands: '/brands',
     categories: '/categories',
+    'product-categories': '/product-categories',
     packages: '/packages',
     forum: '/forum',
     stories: '/stories',

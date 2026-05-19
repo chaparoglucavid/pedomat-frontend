@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   MessageSquare, Search, Eye, Ban, CheckCircle, Clock,
-  ThumbsUp, Share2, MessageCircle, AlertCircle
+  ThumbsUp, Share2, MessageCircle, AlertCircle, Plus, Edit2, Trash2
 } from 'lucide-react';
 import Modal from './Modal';
 import { getStatusColor, getStatusLabel } from '@/data/mockData';
@@ -13,13 +13,17 @@ const ForumPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+  const [form, setForm] = useState({ forum_subject: '', forum_content: '', forum_status: 'pending' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await api.forums();
+        const response = await api.forums();
+        const data = Array.isArray(response) ? response : (response?.data ?? response);
         setPosts(Array.isArray(data) ? data : []);
         setError('');
       } catch {
@@ -49,6 +53,50 @@ const ForumPage: React.FC = () => {
     run();
   };
 
+  const handleSave = async () => {
+    if (!form.forum_subject.trim() || !form.forum_content.trim()) return;
+    try {
+      if (editingPost) {
+        const updated = await api.forumUpdate(editingPost.id, form);
+        const data = updated?.data || updated;
+        setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, ...data } : p));
+      } else {
+        const created = await api.forumStore(form);
+        const data = created?.data || created;
+        setPosts(prev => [data, ...prev]);
+      }
+      setShowFormModal(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Bu forum yazısını silmək istədiyinizə əminsiniz?')) return;
+    try {
+      await api.forumDelete(id);
+      setPosts(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openAdd = () => {
+    setEditingPost(null);
+    setForm({ forum_subject: '', forum_content: '', forum_status: 'pending' });
+    setShowFormModal(true);
+  };
+
+  const openEdit = (post: any) => {
+    setEditingPost(post);
+    setForm({
+      forum_subject: post.forum_subject,
+      forum_content: post.forum_content,
+      forum_status: post.forum_status || 'pending',
+    });
+    setShowFormModal(true);
+  };
+
   const pendingCount = posts.filter(p => p.forum_status === 'pending').length;
 
   return (
@@ -58,12 +106,20 @@ const ForumPage: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-800">Forum Moderasiyası</h2>
           <p className="text-sm text-slate-400">Forum yazılarını idarə edin və moderasiya edin</p>
         </div>
-        {pendingCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
-            <AlertCircle size={16} className="text-amber-600" />
-            <span className="text-sm font-medium text-amber-700">{pendingCount} yazı təsdiq gözləyir</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all"
+          >
+            <Plus size={16} /> Yeni Yazı
+          </button>
+          {pendingCount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+              <AlertCircle size={16} className="text-amber-600" />
+              <span className="text-sm font-medium text-amber-700">{pendingCount} yazı təsdiq gözləyir</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -98,16 +154,32 @@ const ForumPage: React.FC = () => {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-        >
-          <option value="all">Bütün statuslar</option>
-          <option value="active">Aktiv</option>
-          <option value="pending">Gözləyən</option>
-          <option value="blocked">Bloklanmış</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}
+          >
+            Bütün
+          </button>
+          <button
+            onClick={() => setStatusFilter('accepted')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === 'accepted' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}
+          >
+            Aktiv
+          </button>
+          <button
+            onClick={() => setStatusFilter('pending')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === 'pending' ? 'bg-amber-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}
+          >
+            Gözləyən
+          </button>
+          <button
+            onClick={() => setStatusFilter('rejected')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}
+          >
+            Bloklanmış
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -159,19 +231,33 @@ const ForumPage: React.FC = () => {
                   >
                     <Eye size={16} />
                   </button>
-                  {post.forum_status !== 'active' && (
+                  <button
+                    onClick={() => openEdit(post)}
+                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                    title="Redaktə et"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(post.id)}
+                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-600 transition-colors"
+                    title="Sil"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  {post.forum_status !== 'accepted' && (
                     <button
-                      onClick={() => handleStatusChange(post.id, 'active')}
-                      className="p-2 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors"
-                      title="Təsdiq et"
+                      onClick={() => handleStatusChange(post.id, 'accepted')}
+                      className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-emerald-600 transition-colors"
+                      title="Təsdiqlə"
                     >
                       <CheckCircle size={16} />
                     </button>
                   )}
-                  {post.forum_status !== 'blocked' && (
+                  {post.forum_status !== 'rejected' && (
                     <button
-                      onClick={() => handleStatusChange(post.id, 'blocked')}
-                      className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                      onClick={() => handleStatusChange(post.id, 'rejected')}
+                      className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-red-600 transition-colors"
                       title="Blokla"
                     >
                       <Ban size={16} />
@@ -231,6 +317,51 @@ const ForumPage: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Form Modal */}
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingPost ? 'Yazını Redaktə Et' : 'Yeni Forum Yazısı'}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Mövzu</label>
+            <input
+              type="text"
+              value={form.forum_subject}
+              onChange={(e) => setForm(f => ({ ...f, forum_subject: e.target.value }))}
+              placeholder="Mövzu başlığını daxil edin"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Məzmun</label>
+            <textarea
+              value={form.forum_content}
+              onChange={(e) => setForm(f => ({ ...f, forum_content: e.target.value }))}
+              placeholder="Yazı məzmununu daxil edin"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[150px]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+            <select
+              value={form.forum_status}
+              onChange={(e) => setForm(f => ({ ...f, forum_status: e.target.value }))}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            >
+              <option value="accepted">Aktiv</option>
+              <option value="pending">Gözləyən</option>
+              <option value="rejected">Bloklanmış</option>
+            </select>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={handleSave}
+              className="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl font-semibold shadow-lg shadow-cyan-500/25 hover:opacity-90 transition-all"
+            >
+              Yadda Saxla
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
